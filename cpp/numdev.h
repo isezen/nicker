@@ -9,6 +9,7 @@ class numdev{
         static void lap5p_o2(double* a, double* t, int l, int m, double h);
         static void jac9p_o2(double* a, double* p, double* z, int l, int m, double h);
         static void RELAX1(double* p, double* eta, int n, int m, double alpha);
+        static void test(double* a, int l, int m);
 
     private:
         static void j1_first_col (double* a, double* p, double* z, int l, int m, double h);
