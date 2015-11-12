@@ -1,3 +1,13 @@
 .Rproj.user
 .Rhistory
 .RData
+
+*.depend
+
+*.layout
+bin/
+obj/
+
+fortran/NICKER.OUT
+
+fortran/a.out
