@@ -98,23 +98,23 @@ void numdev::j1(double* a, double* p, double* z, int l, int m, double h) {
     }
 }
 
-void numdev::RELAX1(double* p, double* eta, int n, int m, double alpha){
-    double eps    = 0.001;
-    double dx    = 10;
-    int nscan    = 0;
-    int n1       = n-1;
-    int m1       = m-1;
+void numdev::RELAX1(double* p, double* eta, int n, int m, double alpha) {
+    double eps = 0.001;
+    double dx  = 10;
+    int nscan  = 0;
+    int n1     = n-1;
+    int m1     = m-1;
     
-    for(;;){
+    for(;;) {
         nscan++;
         double rmax = 0;
         int isave = 0, jsave =0;
-        for(int i=1;i<n1;i++) {
-            for(int j=1;j<m1;j++) {
-                double r1 = 0.25*(VAL(p,i+1,j) + VAL(p,i-1,j) + VAL(p,i,j+1) + VAL(p,i,j-1));
+        for(int i=1; i<n1; ++i) {
+            for(int j=1; j<m1; ++j) {
+                double r1 =  0.25 * (VAL(p,i+1,j) + VAL(p,i-1,j) + VAL(p,i,j+1) + VAL(p,i,j-1));
                 double r2 = -VAL(p,i,j) -  0.25 * dx * dx * VAL(eta,i,j);
                 double r  = r1 + r2;
-                if(rmax < abs(r)){
+                if(rmax < abs(r)) {
                     isave = i;
                     jsave = j;
                     rmax  = abs(r);
