@@ -50,12 +50,12 @@ JAC3 <- function(b, c, dx, dy=dx) {
   }
   
   j <- 2:(m-1)
-  JJ[1,j] <- J1(b[c(l,1,2),], c[c(l,1,2),], 2, j) # First Row
-  JJ[l,j] <- J1(b[c((l-1),l,1),], c[c((l-1),l,1),], 2, j) # Last Row
+  JJ[1,j] <- J1(b[c(l,1,2),], c[c(l,1,2),], 2, j) # First Row (Left-side)
+  JJ[l,j] <- J1(b[c((l-1),l,1),], c[c((l-1),l,1),], 2, j) # Last Row (Right-side)
   i <- 2:(l-1)
   JJ[i,j] <- J1(b,c,i,j) # inside grids
-  JJ[1:l,1] <- J_first_col() # First Col
-  JJ[1:l,m] <- J_last_col() # Last Col
+  JJ[1:l,1] <- J_first_col() # First Col (Bottom)
+  JJ[1:l,m] <- J_last_col() # Last Col   (Top)
   return(JJ/(12*dy*dx))
 }
 
@@ -68,7 +68,7 @@ JAC2 <- function(b, c, dx, dy=dx) {
   
   l   <- nrow(b) # lines
   m   <- ncol(b) # columns
-  JJ <- matrix(0,nrow=l, ncol=m)
+  JJ <- matrix(0, nrow=l, ncol=m)
   
   if(l<3) stop("Number of rows of b and c must be equal or greater than 3.")
   if(m<3) stop("Number of columns of b and c must be equal or greater than 3.")
@@ -233,31 +233,26 @@ LAPLAC <- function(t, dx) {
   return(difu)
 }
 
-RELAX1 <- function(psi, eta, n, m, nscan, alpha){
-  eps   <- 1e-03
-  dx    <- 10
+RELAX1 <- function(psi, eta, n, m, alpha=1.89, dx=10) {
+  eps   <- 0.001
   nscan <- 0
-  n1    <- n-1
-  m1    <- m-1
   repeat {
     nscan <- nscan + 1
-    rmax <- 0
-    for(i in 2:n1) {
-      for(j in 2:m1) {
+    rmax  <- 0
+    for(i in 2:(n-1)) {
+      for(j in 2:(m-1)) {
         r1 <-  0.25*(psi[i+1,j]+psi[i-1,j]+psi[i,j+1]+psi[i,j-1])
         r2 <- -psi[i,j] - 0.25*(dx^2)*eta[i,j]
         r  <- r1+r2
-        if(rmax < abs(r)){
+        if(rmax < abs(r)) {
           isave <- i
           jsave <- j
           rmax <- abs(r)
         }
-        psi[i,j] <- psi[i,j] + alpha*r
+        psi[i,j] <- psi[i,j] + alpha * r
       }
     }
-    if(nscan == 300) {
-      stop("No convergence achieved")
-    }
+    if(nscan == 300) stop("No convergence achieved")
     ps <- abs(psi[isave, jsave])
     if((rmax/ps-eps)<0) break;
   }

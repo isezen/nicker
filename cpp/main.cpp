@@ -219,7 +219,8 @@ void nicker() {
         loop2(j,0,m,i,0,l)  wrk[i][j] = tmap[i][j];
         
         cout << time << endl;
-        print_arr(&wrk[0][0], l, m, "wrk", false);
+        print_arr(&wrk[0][0], l, m, "wrk", true);
+        print_arr(&psi[0][0], l, m, "psi", true);
         
         loop(j,0,m) w[n][j] = w[n1][j];
         loop(i,0,n) u[i][m] = u[i][m1];

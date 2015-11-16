@@ -31,39 +31,17 @@
 
 source("numeric.R")
 
-
-# This subroutine prints out the results.
-# index = 1 for printing
-# index = 0 no  printing
-CLOUD <- function(rt, n, m, index) {
-  rt    <- matrix(0, nrow=n, ncl=m)
-  rag   <- matrix(0, nrow=39, ncol=61)
-  const <- 1/10000000
-  for(i in 1:n){
-    for(j in 1:m){
-      rag[i,j] <- rt[i,j]
-    }
-  }
-  for(k in seq(1,n,10)){
-    ik <- k
-    k1 <-k+9
-    if(k1 > n) k1 <- n
-    if(index == 1) print()
-  }
-}
-
+JAC <- JAC2
 
 # ----------------------- 
 l <- n <- 39; m <- 61
 n1    <- n-1
 m1    <- m-1
-n2    <- n-2
-m2    <- m-2
-dt    <- 3
-loopt <- 40
+dt    <- 1
+loopt <- 2
+LOOP_MAX <- 200
 gnu   <- 0.5
 dx    <- 10
-e     <- dx
 tneut <- 300
 g     <- 9.81
 nold  <- 1
@@ -72,13 +50,15 @@ alpha <- 1.89
 
 result <- list()
 index <- 0
+x <- (0:(n-1))*dx
+z <- (0:(m-1))*dx
 
 d <- rep(dx, m)
 # Initialize eta,phi(=t),psi,and q
 psi <- q <- arak <- difu <- u <- w <- tmap <- wrk <- array(0,c(n,m))
 eta <- t <- array(0,c(n, m, 2))
 
-#  BASIC
+#  BASIC -----------------
 #  This subroutine defines the initial state of the problem for                 
 #  the stream function, vorticity, excess potential temperature,                
 #  and the time invariant heating function.                                     
@@ -97,43 +77,38 @@ eta <- t <- array(0,c(n, m, 2))
 # excess of 0.5 deg celcius is inserted into a                                  
 # neutral environment initially rest.
 i <- 1:17; j <- 11:31
-t[i, j, nold] <- outer(i, j, function(i,j) 0.5*cos(pi*(i-1)/32)*(cos(pi*((j-1)-10)/40))^2)
-t[i, 10, nold]  <- t[i, 11, nold]
+     t[i, j, nold] <- outer(i, j, function(i,j) 0.5*cos(pi*(i-1)/32)*(cos(pi*((j-1)-10)/40))^2)
+    t[i, 10, nold] <- t[i, 11, nold]
+t[1:16,10:30,nold] <- t[1:16,10:30,nold]/tneut # Write output of initial state.
+               wrk <- t[,,nold]
 # The non-adiabatic heating (deg /sec) is defined as:
-j <- 9:13
-q[i, j] <- outer(i, j, function(i,j) 4e-03*cos(pi*(i-1)/32)*(cos(pi*((j-1)-10)/4))^2)
+# Define the heating as a function of time
+j=9:13
+q[i,j] <- 2*outer(i, j, function(i,j) (4e-03)*cospi((i-1)/32)*(cospi(((j-1)-10)/4))^2)/pi
+# ------------------------
 
 time <- 0
-
-wrk <- t[,,nold]
 
 index <- index + 1
 result[[index]] <- list(time=time, wrk=wrk, psi=psi)
 
-# Write output of initial state.
-t[1:16,10:30,nold] <- t[1:16,10:30,nold]/tneut
-
 loop <- 0
-
 repeat {
-  if(loop == 200) break;
+  if(loop == LOOP_MAX) break;
   loop <- loop + 1
   if(loop != 1) {
     nsave <- nold
     nold  <- new
     new   <- nsave
   }
-  # Define the heating as a function of time
-  i=1:17;j=9:13
-  q[i,j] <- 2*outer(i, j, function(i,j) (4e-03)*cos(pi*(i-1)/32)*(cos(pi*((j-1)-10)/4))^2)/pi
-  if(loop >100 && loop <=200) q[i,j] <- -q[i,j]
+  if(loop ==101) q <- -q
   
   #
   # Compute initial estimate of eta from vorticity equation.
   # Routine Jac computes the horizantal advection of vorticity.
   # Routine LAPLAC computes the laplacian of the streamfunction.
   #
-  arak <- JAC2(psi, eta[,,nold], dx)
+  arak <- JAC(psi, eta[,,nold], dx)
   difu <- LAPLAC(eta[,,nold],dx)
   
   i=2:n1;j=2:m1
@@ -142,17 +117,16 @@ repeat {
   i=1:n;    eta[i,1,new] <- eta[i,m,new] <- 0
   j <- 1:m; eta[1,j,new] <- eta[n,j,new] <- 0
   
-  # Calculate initial estimate of phi from the
-  # heat transfer equation.
-  arak <- JAC2(psi, t[,,nold], dx)
+  # Calculate initial estimate of phi from the heat transfer equation.
+  arak <- JAC(psi, t[,,nold], dx)
   difu <- LAPLAC(t[,,nold],dx)
   
   i <- 1:n; j <- 1:m
-  t[i,j,new] <- t[i,j,nold]+dt*arak[i,j]+dt*q[i,j]/tneut+dt*gnu*difu[i,j]
+  t[i,j,new] <- t[i,j,nold]+dt*(arak[i,j]+q[i,j]/tneut+gnu*difu[i,j])
   
   # Relax eta to get psi.Routine RELAX1 solves
   # the poisson equation.
-  psi <- RELAX1(psi, eta[,,new], n, m, nscan, alpha)
+  psi <- RELAX1(psi, eta[,,new], n, m, alpha, dx)
   
   #
   # The horizontal velocity and the vertical velocity
@@ -168,18 +142,17 @@ repeat {
   # Calculate final (corrector) estimates of eta and phi for this
   # time step from the predicted vorticity and temparature fields.
   #
-  arak <- JAC2(psi, eta[,,new], dx)
+  arak <- JAC(psi, eta[,,new], dx)
   difu <- LAPLAC(eta[,,new],dx)
   
-  for(i in 2:n1)
-    for(j in 2:m1)
-      eta[i,j,new] <- eta[i,j,nold]+dt*arak[i,j]+dt*gnu*difu[i,j]-dt*g*(t[i+1,j,new]-t[i-1,j,new])/(2*dx)
+  i <- 2:n1; j <- 2:m1
+  eta[i,j,new] <- eta[i,j,nold]+dt*(arak[i,j]+gnu*difu[i,j]-g*(t[i+1,j,new]-t[i-1,j,new])/(2*dx))
   
   #
   # Relax final estimate of eta to get final psi
   # and consequently u and w fields.
   #
-  psi <- RELAX1(psi, eta[,,new], n, m, nscan, alpha)
+  psi <- RELAX1(psi, eta[,,new], n, m, alpha, dx)
   
   i <- 1:n; j <- 1:m1
   u[i,j] <- (psi[i,j+1]-psi[i,j])/dx
@@ -190,11 +163,11 @@ repeat {
   #
   # Compute final estimate of phi for this time step
   #
-  arak <- JAC2(psi, t[,,new], dx)
+  arak <- JAC(psi, t[,,new], dx)
   difu <- LAPLAC(t[,,new],dx)
   
   i <- 1:n; j <- 1:m
-  t[i,j,new] <- t[i,j,nold]+dt*arak[i,j]+dt*q[i,j]/tneut+dt*gnu*difu[i,j]
+  t[i,j,new] <- t[i,j,nold]+dt*(arak[i,j]+q[i,j]/tneut+gnu*difu[i,j])
   
   #
   # Check if output is required.
@@ -205,7 +178,7 @@ repeat {
   time <- time + dt
   if((loop %% loopt) != 0) next
   #  cat("nscan=", nscan, "\n")
-  time <- 3*loop
+  time <- dt*loop
   cat("time=", time, "\n")
   #  call CLOUD (t(1,1,new),n,m,0)
   
@@ -246,13 +219,25 @@ repeat {
   # write (6,21)time
   u[1:n,m] <- u[1:n,m1]
   # call CLOUD (u,n,m,0)
-  if(loop == 300) break
 }
 
-x <- (0:(n-1))*dx
-z <- (0:(m-1))*dx
-for(i in 1:6) {
-  filled.contour(x, z, result[[i]]$psi, color = heat.colors, xlab="x", ylab="z",main=paste0("Time=",result[[i]]$time),
-                 plot.axes={axis(1); axis(2); contour(x, z, result[[i]]$wrk, nlevels=5, lwd=2, lty=1, add = T)})
-}
+stop()
+
+
+require(animation)
+saveGIF({
+  for(i in 2:length(result)) {
+    time <- result[[i]]$time
+    psi <- result[[i]]$psi
+    psi <- rbind(psi[nrow(psi):2,],psi)
+    wrk <- abs(result[[i]]$wrk)
+    wrk[which(wrk<1e-03)] <- 0
+    wrk <- rbind(wrk[nrow(wrk):2,],wrk)
+    x2 <- c(-x[length(x):2],x)
+    z2 <- z
+    filled.contour(x2, z2, wrk, color = heat.colors, xlab="x", ylab="z",main=paste0("Time=",time),
+                   plot.axes={axis(1); axis(2); contour(x2, z2, psi, lwd=2, lty=1, add = T)})
+  }
+},interval = 0.1)
+
 
