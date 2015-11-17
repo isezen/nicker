@@ -33,12 +33,10 @@ source("numeric.R")
 JAC <- JAC3
 
 # ----------------------- 
-dt1 <- 3 # 6 initial dt is 6 seconds
-dt2 <- 3 # 4 dt=dt2 at 6 minutes
-dt3 <- 3 # 3 dt=dt3 at 8 minutes
-dt  <- dt1
+dts          <- c(6, 4, 3)                 # you can define different time intervals (seconds)
+change_dt_on <- c(0, 360, 480)             # change dt value at this time stamp (seconds)
 OUTPUT_TIMES <- c(0, 6, 12, 120, 360, 600)
-l <- n <- 39; m <- 61
+n <- 39; m <- 61
 gnu   <- 0.5
 dx    <- 10
 tneut <- 300
@@ -84,13 +82,16 @@ q[i,j] <- 2*outer(i, j, function(i,j) (4e-03)*cospi((i-1)/32)*(cospi(((j-1)-10)/
 
 loop <- time <- 0
 k <- c(1,2) # SWAP indices for eta[] and t[]
+dt <- 0
 repeat {
   loop <- loop + 1
   if(loop != 1) k <- rev(k) # Swap indices
   if(time == 306) q <- -q # Change the heating as a function of time
   
-  if(time==360) dt <- dt2
-  else if(time==480) dt <- dt3
+  # You can different dts for different time intervals.
+  if(time %in% change_dt_on)
+    dt <- dts[which(time == change_dt_on, arr.ind = T)]
+
   #
   # Compute initial estimate of eta from vorticity equation.
   # Routine Jac computes the horizantal advection of vorticity.
