@@ -14,17 +14,6 @@
 #
 # Define variables.
 #
-# n         : vertical dimension
-# m         : horizontal dimension
-# dt        : time step here dt=3 seconds
-# loopt     : output interval equivalent to 2 minutes
-# loop      : number of time steps. here max 200 = 10 minutes
-# gnu       : eddy kinematic coefficient of heat and momentum
-# dx        : grid spacing. 10 meters in horizontal and vertical
-# tneut     : potential temperature of neutral environment
-# alpha     : relaxation factor
-# eta       : vorticity (per sec)
-# t         : temperature excess (deg celcius)
 # psi       : streamfunction
 # difu      : eddy dissipation (m**2/sec)
 #
@@ -32,126 +21,119 @@
 source("numeric.R")
 JAC <- JAC3
 
+d_dx <- function(m, dx) {i<-2:(n-1);(m[i+1,]-m[i-1,])/(2*dx)}
+
 # ----------------------- 
-dts          <- c(6, 4, 3)                 # you can define different time intervals (seconds)
+dts          <- c(3, 3, 3)                 # you can define different time intervals (seconds)
 change_dt_on <- c(0, 360, 480)             # change dt value at this time stamp (seconds)
-OUTPUT_TIMES <- c(0, 6, 12, 120, 360, 600)
-n <- 39; m <- 61
-gnu   <- 0.5
-dx    <- 10
-tneut <- 300
-g     <- 9.81
-alpha <- 1.89
+OUTPUT_TIMES <- c(0, 6, 12, 120, 360, 600) # Save outputs of the system at this time stamps
+n <- 39; m <- 61 # vertical (n) and horizontal (m) dimensions
+gnu   <- 0.5     # eddy kinematic coefficient of heat and momentum
+dx    <- 10      # grid spacing. 10 meters in horizontal and vertical
+tneut <- 300     # potential temperature of neutral environment
+g     <- 9.81    # accerelation of gravity
+alpha <- 1.89    # relaxation factor
 
-result <- list()
-index <- 1
+result <- list(); index <- 1 # Holder for calculation results
 
-# Initialize eta,phi(=t),psi,and q
-psi <- q <- arak <- difu <- u <- w <- array(0,c(n,m))
+# INITIALIZATIONS
+# psi  : stream function 
+# q    : non-adiabatic heating (deg /sec)
+# u,w  : u (horizontal) and w (vertical) wind speeds
+# eta  : vorticity (per sec)
+# t    : temperature excess (deg celcius)
+#
+# #  initially u = w = psi = eta  = 0. 
+psi <- q <- u <- w <- array(0,c(n,m))
 eta <- t <- array(0,c(n, m, 2))
 
-#  BASIC
-#  This subroutine defines the initial state of the problem for                 
-#  the stream function, vorticity, excess potential temperature,                
-#  and the time invariant heating function.                                     
 #  The boundary conditions used are those for freeslip, insulated
 #  surfaces.                                                 
 #  hort vel = 0. at x = 0 and x = 380                                            
 #  vert vel = 0. at z = 0 and z = 600                                            
-#  initially u = w = psi = eta  = 0.                                              
+#                                            
 #  The temperature excess defined in the x-dir from 0 to 160m                        
 #  and in the z-direction from 100m to 300 m. Everywhere else 
 #  is set to zero .The heating field is defined in x-dir from 
 #  0 to 160 m and in z-dir from 80 to 120 m .It is set to 0                                                
 #  elsewhere.
-
-# The thermal having a maximum potential temperature                               
-# excess of 0.5 deg celcius is inserted into a                                  
-# neutral environment initially rest.
-              i <- 1:17
-              j <- 11:31
+              i <- 1:17  # The thermal having a maximum potential temperature excess of   
+              j <- 11:31 # 0.5 deg celcius is inserted into a neutral environment initially rest.
      t[i, j, 1] <- outer(i, j, function(i,j) 0.5*cos(pi*(i-1)/32)*(cos(pi*((j-1)-10)/40))^2)
-    t[i, 10, 1] <- t[i, 11, 1]
-         t[,,1] <- t[,,1]/tneut
-            phi <- t[,,1]
-result[[index]] <- list(time=0, phi=phi, t=phi*tneut, psi=psi, u=u, w=w) # Save initial situation
-# The non-adiabatic heating (deg /sec) is defined as:
-j <- 9:13
+    t[i, 10, 1] <- t[i, 11, 1]  # decrease sharp gradiant at the bottom of buble.
+         t[,,1] <- t[,,1]/tneut # Convert t to phi by dividing t by tneut (t is phi anymore.)
+
+result[[index]] <- list(time=0, phi=t[,,1], t=t[,,1]*tneut, psi=psi, u=u, w=w) # Save initial situation
+
+j <- 9:13 # Time invariant non-adiabatic heating (deg /sec) is defined as:
 q[i,j] <- 2*outer(i, j, function(i,j) (4e-03)*cospi((i-1)/32)*(cospi(((j-1)-10)/4))^2)/pi
 # ------------------------
 
-loop <- time <- 0
-k <- c(1,2) # SWAP indices for eta[] and t[]
+time <- 0
+k <- c(2,1) # SWAP indices for eta[] and t[]
 dt <- 0
 repeat {
-  loop <- loop + 1
-  if(loop != 1) k <- rev(k) # Swap indices
-  if(time == 306) q <- -q # Change the heating as a function of time
+  k <- rev(k) # Swap indices
+  if(time == 306) q <- -q # make non-adiabatic heating time dependent
   
-  # You can different dts for different time intervals.
-  if(time %in% change_dt_on)
+  if(time %in% change_dt_on) # You can have different dts for different time intervals.
     dt <- dts[which(time == change_dt_on, arr.ind = T)]
 
-  #
   # Compute initial estimate of eta from vorticity equation.
-  # Routine Jac computes the horizantal advection of vorticity.
+  # Routine JAC computes the horizantal advection of vorticity.
   # Routine LAPLAC computes the laplacian of the streamfunction.
-  arak <- JAC(psi, eta[,,k[1]], dx)
-  difu <- LAPLAC(eta[,,k[1]], dx)
   
+  # Equation (4)
   i<-2:(n-1); j<-2:(m-1)
-  eta[i,j,k[2]] <- eta[i,j, k[1]] + dt*(arak[i,j]+gnu*difu[i,j]-g*(t[i+1,j,k[1]]-t[i-1,j,k[1]])/(2*dx))
+  jac_psi_eta <- JAC(psi, eta[,,k[1]], dx)[i,j]
+  lap_eta     <- LAPLAC(eta[,,k[1]], dx)[i,j]
+  eta[i,j,k[2]] <- eta[i,j,k[1]] + dt*(jac_psi_eta - g*d_dx(t[,j,k[1]],dx) + gnu*lap_eta)
   
   eta[,1,k[2]] <- eta[,m,k[2]] <- 0
   eta[1,,k[2]] <- eta[n,,k[2]] <- 0
 
-  # Calculate initial estimate of phi from the
-  # heat transfer equation.
-  arak <- JAC(psi, t[,,k[1]], dx)
-  difu <- LAPLAC(t[,,k[1]],dx)
-
-  t[,,k[2]] <- t[,,k[1]] + dt * (arak + q/tneut + gnu * difu)
+  # Calculate initial estimate of phi from the heat transfer equation.
+  # Equation (5)
+  jac_psi_phi <- JAC(psi, t[,,k[1]], dx)
+  lap_phi     <- LAPLAC(t[,,k[1]],dx)
+  t[,,k[2]] <- t[,,k[1]] + dt * (jac_psi_phi + q/tneut + gnu*lap_phi)
   
-  # Relax eta to get psi.Routine RELAX1 solves
-  # the poisson equation.
+  # Relax eta to get psi.Routine RELAX1 solves the poisson equation.
+  # Equation (6)
   psi <- RELAX1(psi, eta[,,k[2]], n, m, alpha, dx)
-  #
-  # The horizontal velocity and the vertical velocity
-  # are defined from the streamfunction.
-  i <- 1:n;     j <- 1:(m-1); u[i,j] <-  (psi[i,j+1]-psi[i,j])/dx
-  i <- 1:(n-1); j <- 1:m;     w[i,j] <- -(psi[i+1,j]-psi[i,j])/dx
   
   #
   # Calculate final (corrector) estimates of eta and phi for this
   # time step from the predicted vorticity and temparature fields.
-  arak <- JAC(psi, eta[,,k[2]], dx)
-  difu <- LAPLAC(eta[,,k[2]],dx)
-  
+  # # Equation (4)
   i <- 2:(n-1); j <- 2:(m-1)
-  eta[i,j,k[2]] <- eta[i,j,k[1]] + dt * (arak[i,j] + gnu*difu[i,j] - g*(t[i+1,j,k[2]]-t[i-1,j,k[2]])/(2*dx))
+  jac_psi_eta <- JAC(psi, eta[,,k[2]], dx)[i,j]
+  lap_eta     <- LAPLAC(eta[,,k[2]],dx)[i,j]
+  eta[i,j,k[2]] <- eta[i,j,k[1]] + dt*(jac_psi_eta - g*d_dx(t[,j,k[2]],dx) + gnu*lap_eta)
   
   #
   # Relax final estimate of eta to get final psi
   # and consequently u and w fields.
+  # Equation (6)
   psi <- RELAX1(psi, eta[,,k[2]], n, m, alpha, dx)
-    
-  i <- 1:n;     j <- 1:(m-1); u[i,j] <-  (psi[i,j+1]-psi[i,j])/dx
-  i <- 1:(n-1); j <- 1:m;     w[i,j] <- -(psi[i+1,j]-psi[i,j])/dx
   
   # Compute final estimate of phi for this time step
-  arak <- JAC(psi, t[,,k[2]], dx)
-  difu <- LAPLAC(t[,,k[2]], dx)
-  
-  t[,,k[2]] <- t[,,k[1]] + dt*(arak + q/tneut + gnu*difu)
+  # Equation (5)
+  jac_psi_phi <- JAC(psi, t[,,k[2]], dx)
+  lap_phi     <- LAPLAC(t[,,k[2]], dx)
+  t[,,k[2]] <- t[,,k[1]] + dt*(jac_psi_phi + q/tneut + gnu*lap_phi)
 
+  # The horizontal velocity and the vertical velocity
+  # are defined from the stream function.
+  i <- 1:n;     j <- 1:(m-1); u[i,j] <-  (psi[i,j+1]-psi[i,j])/dx
+  i <- 1:(n-1); j <- 1:m;     w[i,j] <- -(psi[i+1,j]-psi[i,j])/dx
+  w[n,] <- w[(n-1),]; u[,m] <- u[,(m-1)] # set boundaries
+  
   time <- time + dt
-  w[n,] <- w[(n-1),]
-  u[,m] <- u[,(m-1)]
   
   cat("time=", time, "\n")
   index <- index + 1
-  phi <- t[,,k[2]]
-  result[[index]] <- list(time=time, phi=phi, t=phi*tneut, psi=psi, u=u, w=w)
+  result[[index]] <- list(time=time, phi=t[,,k[2]], t=t[,,k[2]]*tneut, psi=psi, u=u, w=w)
 
   if(time >= 600) break;
 }
@@ -192,8 +174,6 @@ plot(x=time, y=sum_k_gz_phi, type="l", xlab="t (minutes)", ylab="sum_k_gz_phi")
 plot(x=time, y=ztmax, xlab="minutes", ylab="z (meters)", las=1, type="l", ylim=c(0,600))
 lines(x=time, zwmax, col="red", lty=2)
 lines(x=time, zpsimax, col="blue", lty=5)
-
-stop();
 
 for(i in 1:length(result)) {
   if(result[[i]]$time %in% OUTPUT_TIMES) {
