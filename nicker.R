@@ -1,33 +1,33 @@
-# c
-# c  This program simulates the evolution of a simple
-# c  cloud model as described by nickerson (1965).
-# c  The heat source is inserted at the bottom of the
-# c  atmosphere and the fluid is initially stratified
-# c  and at rest.
-# c  The thermal begins to ascent,and a vortex circulation
-# c  develops . The temperature within the thermal
-# c  increases due to heating and  the thermal rises above the
-# c  heat source. The maximum temperature reaches a peak
-# c  then decreases when dissipation exceed buoyancy.
-# c  The potential temperature field resembles a thin
-# c  stemmed mushroom.
-# c
-# c  Define variables.
-# c
-# c  n         : vertical dimension
-# c  m         : horizontal dimension
-# c  dt        : time step here dt=3 seconds
-# c  loopt     : output interval equivalent to 2 minutes
-# c  loop      : number of time steps. here max 200 = 10 minutes
-# c  gnu       : eddy kinematic coefficient of heat and momentum
-# c  dx        : grid spacing. 10 meters in horizontal and vertical
-# c  tneut     : potential temperature of neutral environment
-# c  alpha     : relaxation factor
-# c  eta       : vorticity (per sec)
-# c  t         : temperature excess (deg celcius)
-# c  psi       : streamfunction
-# c  difu      : eddy dissipation (m**2/sec)
-# c
+#
+# This program simulates the evolution of a simple
+# cloud model as described by nickerson (1965).
+# The heat source is inserted at the bottom of the
+# atmosphere and the fluid is initially stratified
+# and at rest.
+# The thermal begins to ascent,and a vortex circulation
+# develops. The temperature within the thermal
+# increases due to heating and  the thermal rises above the
+# heat source. The maximum temperature reaches a peak
+# then decreases when dissipation exceed buoyancy.
+# The potential temperature field resembles a thin
+# stemmed mushroom.
+#
+# Define variables.
+#
+# n         : vertical dimension
+# m         : horizontal dimension
+# dt        : time step here dt=3 seconds
+# loopt     : output interval equivalent to 2 minutes
+# loop      : number of time steps. here max 200 = 10 minutes
+# gnu       : eddy kinematic coefficient of heat and momentum
+# dx        : grid spacing. 10 meters in horizontal and vertical
+# tneut     : potential temperature of neutral environment
+# alpha     : relaxation factor
+# eta       : vorticity (per sec)
+# t         : temperature excess (deg celcius)
+# psi       : streamfunction
+# difu      : eddy dissipation (m**2/sec)
+#
 
 source("numeric.R")
 JAC <- JAC3
