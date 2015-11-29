@@ -4,6 +4,63 @@
 
 # This function is similar to JAC2 function but
 # up and down boundaries numerical calculation are different.
+JAC4 <- function(b, c, dx, dy=dx) {
+  
+  if(!is.matrix(b) || !is.matrix(c)) stop("b and c both must be matrix")
+  if(all(dim(b) != dim(c))) stop("Dimensions b and c must be equal.")
+  
+  l   <- nrow(b) # lines
+  m   <- ncol(b) # columns
+  JJ <- matrix(0,nrow=l, ncol=m)
+  
+  if(l<3) stop("Number of rows of b and c must be equal or greater than 3.")
+  if(m<3) stop("Number of columns of b and c must be equal or greater than 3.")
+  
+  J_first_col <- function() {
+    i <- 2:(l+1)
+    rows <- c(l,1:l,1);cols <- 1:2
+    b <- b[rows, cols]; c <- c[rows, cols]
+    return((b[i,1]   + b[i+1,1]  - b[i,2]    - b[i+1,2]) * (c[i,1]   + c[i+1,1]) -
+             (b[i-1,1] + b[i,1]    - b[i-1,2]  - b[i,2])   * (c[i-1,1] + c[i,1]) +
+             (b[i+1,1] + b[i+1,2]  - b[i-1,1]  - b[i-1,2]) * (c[i,1]   + c[i,2]) +
+             (b[i+1,1] - b[i,2])   * (c[i,1]   + c[i+1,2]) +
+             (b[i,2]   - b[i-1,1]) * (c[i-1,2] + c[i,1]))
+  }
+  
+  J_last_col <- function() {
+    i <- 2:(l+1)
+    rows <- c(l,1:l,1);cols <- (m-1):m
+    b <- b[rows, cols]; c <- c[rows, cols]
+    return((b[i,1]   + b[i+1,1] - b[i,2]   - b[i+1,2]) * (c[i,2]   + c[i+1,2]) -
+             (b[i-1,1] + b[i,1]   - b[i-1,2] - b[i,2])   * (c[i-1,2] + c[i,2]) -
+             (b[i+1,1] + b[i+1,2] - b[i-1,1] - b[i-1,2]) * (c[i,1]   + c[i,2]) -
+             (b[i,1]   - b[i-1,2]) * (c[i-1,1] + c[i,2]) +
+             (b[i,1]   - b[i+1,2]) * (c[i,2]   + c[i+1,1]))
+  }
+  
+  J1 <- function(b,c,i,j) {
+    return((b[i,j-1]   + b[i+1,j-1] - b[i,j+1]   - b[i+1,j+1]) * (c[i+1,j] - c[i,j]) +
+             (b[i-1,j-1] + b[i,j-1]   - b[i-1,j+1] - b[i,j+1])   * (c[i,j]   - c[i-1,j]) +
+             (b[i+1,j]   + b[i+1,j+1] - b[i-1,j]   - b[i-1,j+1]) * (c[i,j+1] - c[i,j]) +
+             (b[i+1,j-1] + b[i+1,j]   - b[i-1,j-1] - b[i-1,j])   * (c[i,j]   - c[i,j-1]) +
+             (b[i+1,j]   - b[i,j+1]) * (c[i+1,j+1] - c[i,j]) +
+             (b[i,j-1]   - b[i-1,j]) * (c[i,j]     - c[i-1,j-1]) +
+             (b[i,j+1]   - b[i-1,j]) * (c[i-1,j+1] - c[i,j]) +
+             (b[i+1,j]   - b[i,j-1]) * (c[i,j]     - c[i+1,j-1]))
+  }
+  
+  j <- 2:(m-1)
+  JJ[1,j] <- J1(b[c(2,1,2),], c[c(2,1,2),], 2, j) # First Row (Left-side)
+  JJ[l,j] <- J1(b[c((l-1),l,2),], c[c((l-1),l,2),], 2, j) # Last Row (Right-side)
+  i <- 2:(l-1)
+  JJ[i,j] <- J1(b,c,i,j) # inside grids
+  JJ[1:l,1] <- J_first_col() # First Col (Bottom)
+  JJ[1:l,m] <- J_last_col() # Last Col   (Top)
+  return(JJ/(12*dy*dx))
+}
+
+# This function is similar to JAC2 function but
+# up and down boundaries numerical calculation are different.
 JAC3 <- function(b, c, dx, dy=dx) {
   
   if(!is.matrix(b) || !is.matrix(c)) stop("b and c both must be matrix")
